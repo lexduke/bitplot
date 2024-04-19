@@ -5,7 +5,7 @@ from subprocess import Popen, PIPE
 from getpass import getpass
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
-from matplotlib.ticker import MultipleLocator
+from matplotlib.ticker import MultipleLocator, FuncFormatter
 from matplotlib.style import use as use_style
 from datetime import datetime
 
@@ -177,6 +177,11 @@ def create_plot(ips, path_to_csv, epoch_start, epoch_end, ylim = None, enum = 1)
         ax.set_ylim(0)
     ylim = ax.get_ylim()
     ax.yaxis.set_major_locator(MultipleLocator(5*10**5))
+
+    def millions_formatter(y, pos):
+        return '%1dkbs' % (y * 1e-3)
+
+    ax.yaxis.set_major_formatter(FuncFormatter(millions_formatter))
 
     ax.set_xlabel('Дата')
     ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S\n%d-%m-%Y'))
