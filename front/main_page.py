@@ -6,6 +6,7 @@ from tkinter.ttk import Separator
 from _tkinter import TclError
 from math import ceil
 
+from utils.convertors import seconds_to_hms
 
 logo_text = """
             |    _)  |         /\         
@@ -54,14 +55,14 @@ class AddIpFrame(tk.Frame):
         self.columnconfigure(0, weight=1) # Растягиваем add_ip_entry по ширине фрейма
 
         # Привязываем валидацию к каждому нажатию клавиши в поле ввода
-        self.entry.bind('<KeyRelease>', self.validate_entry)
+        self.entry.bind('<KeyRelease>', self.update_button_state)
 
     def validate_ip(self, text):
         # Проверка формата IP-адреса
         pattern = r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){0,3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?){0,1}$'
         return True if re.match(pattern, text) or text == "" else False
 
-    def validate_entry(self, event):
+    def update_button_state(self, event):
         # Паттерн для проверки формата IP-адреса
         ip_pattern = r'^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
 
@@ -166,9 +167,9 @@ class TimeFrame(tk.Frame):
         self.summary_time_var = tk.IntVar()
 
         # Инициализация дочерних элементов
-        self.set_time_label = tk.Label(self, text='Время сбора данных (в секундах):')
-        self.analyse_time_label = tk.Label(self, text='Время анализа данных (в секундах):')
-        self.summary_time_label = tk.Label(self, text='Время всего процесса (в секундах):')
+        self.set_time_label = tk.Label(self, text='Время сбора данных (в сек.):')
+        self.analyse_time_label = tk.Label(self, text='Время анализа данных:')
+        self.summary_time_label = tk.Label(self, text='Время всего процесса:')
         self.set_time_entry = tk.Entry(self, width=5, textvariable=self.set_time_var, validate='key', validatecommand=(self.register(validate_number), '%P'))
         self.analyse_time_info = tk.Label(self, textvariable=self.analyse_time_var)
         self.summary_time_info = tk.Label(self, textvariable=self.summary_time_var)
@@ -190,11 +191,11 @@ class TimeFrame(tk.Frame):
             set_time = int(self.set_time_var.get())
             analyse_time = ceil(set_time*(0.012+0.00084*self.listbox_frame.listbox.size()))
             summary_time = set_time + analyse_time
-            self.analyse_time_var.set(analyse_time)
-            self.summary_time_var.set(summary_time)
+            self.analyse_time_var.set(seconds_to_hms(analyse_time))
+            self.summary_time_var.set(seconds_to_hms(summary_time))
         except TclError:
-            self.analyse_time_var.set(0)
-            self.summary_time_var.set(0)
+            self.analyse_time_var.set("Нет данных")
+            self.summary_time_var.set("Нет данных")
 
 
 class FilePathFrame(tk.Frame):
@@ -220,13 +221,11 @@ class FilePathFrame(tk.Frame):
         
 
 class StartAnalyseFrame(tk.Frame):
-    def __init__(self, master=None, add_frame=None, listbox_frame=None, delete_frame=None, time_frame=None, file_path_frame=None, **kwargs) -> None:
+    def __init__(self, master=None, listbox_frame=None, time_frame=None, file_path_frame=None, **kwargs) -> None:
         super().__init__(master, **kwargs)
 
         # Инициализация ссылок на дочерние элементы
-        self.add_frame = add_frame
         self.listbox_frame = listbox_frame
-        self.delete_frame = delete_frame
         self.time_frame = time_frame
         self.file_path_frame = file_path_frame
 
@@ -268,42 +267,40 @@ class StartAnalyseFrame(tk.Frame):
             self.analyse_csv.config(state='disabled')
 
 
-# Основное окно
-root = tk.Tk(className='Bitplot')
-root.title('Bitplot')
-custom_font = font.Font(family='Arial', size=11)
-root.option_add('*Font', custom_font)
+def show_main_page():
+    # Основное окно
+    root = tk.Tk(className='Bitplot')
+    root.title('Bitplot')
+    custom_font = font.Font(family='Arial', size=11)
+    root.option_add('*Font', custom_font)
 
-# Инициализация дочерних элементов
-main_frame = tk.Frame(root)
-logo_label = tk.Label(main_frame, text=logo_text, font=('Courier', 12))
-ip_list_frame = IpListFrame(main_frame)
-delete_ip_frame = DeleteIpsFrame(main_frame, listbox_frame=ip_list_frame)
-add_ip_frame = AddIpFrame(main_frame, listbox_frame=ip_list_frame, delete_frame=delete_ip_frame)
-time_frame = TimeFrame(main_frame, listbox_frame=ip_list_frame)
-file_path_frame = FilePathFrame(main_frame)
-start_analyse_frame = StartAnalyseFrame(main_frame, add_frame=add_ip_frame, listbox_frame=ip_list_frame, delete_frame=delete_ip_frame, time_frame=time_frame, file_path_frame=file_path_frame)
-delete_ip_frame.start_frame = start_analyse_frame
-add_ip_frame.start_frame = start_analyse_frame
+    # Инициализация дочерних элементов
+    main_frame = tk.Frame(root)
+    logo_label = tk.Label(main_frame, text=logo_text, font=('Courier', 12))
+    ip_list_frame = IpListFrame(main_frame)
+    delete_ip_frame = DeleteIpsFrame(main_frame, listbox_frame=ip_list_frame)
+    add_ip_frame = AddIpFrame(main_frame, listbox_frame=ip_list_frame, delete_frame=delete_ip_frame)
+    time_frame = TimeFrame(main_frame, listbox_frame=ip_list_frame)
+    file_path_frame = FilePathFrame(main_frame)
+    start_analyse_frame = StartAnalyseFrame(main_frame, listbox_frame=ip_list_frame, time_frame=time_frame, file_path_frame=file_path_frame)
+    delete_ip_frame.start_frame = start_analyse_frame
+    add_ip_frame.start_frame = start_analyse_frame
 
-# Отображение дочерних элементов
-main_frame.pack(fill='both', padx='20', pady='20', expand=True)
-logo_label.pack(fill='x')
-add_ip_frame.pack(fill='x', pady=(0,5))
-ip_list_frame.pack(fill='both', expand=True)
-delete_ip_frame.pack(fill='x',pady=(5,0))
+    # Отображение дочерних элементов
+    main_frame.pack(fill='both', padx='20', pady='20', expand=True)
+    logo_label.pack(fill='x')
+    add_ip_frame.pack(fill='x', pady=(0,5))
+    ip_list_frame.pack(fill='both', expand=True)
+    delete_ip_frame.pack(fill='x',pady=(5,0))
+    Separator(main_frame, orient='horizontal').pack(fill='x', pady=20)
+    time_frame.update_times()
+    time_frame.pack(fill='x')
+    Separator(main_frame, orient='horizontal').pack(fill='x', pady=20)
+    file_path_frame.pack(fill='x')
+    Separator(main_frame, orient='horizontal').pack(fill='x', pady=20)
+    start_analyse_frame.pack(fill='x')
 
-Separator(main_frame, orient='horizontal').pack(fill='x', pady=20)
+    root.mainloop()
 
-time_frame.update_times()
-time_frame.pack(fill='x')
-
-Separator(main_frame, orient='horizontal').pack(fill='x', pady=20)
-
-file_path_frame.pack(fill='x')
-
-Separator(main_frame, orient='horizontal').pack(fill='x', pady=20)
-
-start_analyse_frame.pack(fill='x')
-
-root.mainloop()
+if __name__ == '__main__':
+    exit()

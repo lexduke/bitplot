@@ -1,5 +1,5 @@
-from os import SEEK_END, SEEK_CUR
-from time import time, strftime, localtime
+from os import SEEK_END, SEEK_CUR, mkdir
+from time import time
 from math import ceil
 from subprocess import Popen, PIPE
 from getpass import getpass
@@ -8,6 +8,8 @@ from matplotlib.dates import DateFormatter
 from matplotlib.ticker import MultipleLocator, FuncFormatter
 from matplotlib.style import use as use_style
 from datetime import datetime
+
+from utils.convertors import epoch_to_datetime
 
 
 
@@ -27,29 +29,11 @@ def timer(name):
     return decorator
 
 
-### ### Lambda ### ###
-
-epoch_to_datetime = lambda epoch_time: strftime('%Y-%m-%d %H:%M:%S', localtime(epoch_time))
- 
-
-
 ### ### Методы ### ###
 
 ### Проверка пароля администратора
 
-def check_password(password): # Проверка и передача пароля администратора другим подпроцессам. Не знаю, как сделать это безопаснее
-    
-    cmd = 'sudo -S echo "Password is valid"'
 
-    proc = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    proc.communicate(password.encode())
-
-    return_code = proc.returncode
-    if return_code == 0:
-        return True
-    else:
-        print('Ошибка: Неверный пароль!')
-        return False
 
 
 def get_sudo():
@@ -224,7 +208,6 @@ def create_plot(ips, path_to_csv, epoch_start, epoch_end, ylim = None, enum = 1)
 
 
 def create_all_plots(ip_list, path_to_csv, epoch_start, epoch_end):
-    from os import mkdir
 
     date_duration = f'{epoch_to_datetime(epoch_start).replace(" ","_")}_{epoch_to_datetime(epoch_end).replace(" ","_")}'
     try:
