@@ -1,6 +1,6 @@
 /plots/
-/data/__pycache__/
 /settings.ini
 /.idea
 /.venv
 /.git
+__pycache__
