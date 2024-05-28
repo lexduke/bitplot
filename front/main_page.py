@@ -6,18 +6,11 @@ from tkinter.ttk import Separator
 from _tkinter import TclError
 from math import ceil
 
-from utils.convertors import seconds_to_hms
-
-logo_text = """
-            |    _)  |         /\         
-             _ \  |   _|      /  \        
-   /\      _.__/__|_\__|_____/    \       
-__/  \    /          |        |    \      
-      \  /      _ \  |   _ \   _|   \_____
-       \/      .__/ _| \___/ \__|         
-              _|                          
-"""
-
+from utils.converters import seconds_to_hms
+from data.bpt_parser import sniff_data, get_epoch, create_all_plots
+from utils.converters import pcapng_to_csv
+from front.warnings import show_warning, show_no_data_warning
+from front.loading_page import LoadingPage
 
 def validate_number(text):
     # Проверка формата IP-адреса
@@ -218,11 +211,18 @@ class FilePathFrame(tk.Frame):
         self.csv_label.grid(row=1, column=0, sticky='w')
         self.csv_entry.grid(row=1, column=1, sticky='we')
         self.columnconfigure(1, weight=1) # Растягиваем второй столбец по ширине фрейма
+
+    def fill_empty_entries(self, text: str):
+        if not self.pcapng_entry.get():
+            self.pcapng_entry.insert(0,text)
+        if not self.csv_entry.get():
+            self.csv_entry.insert(0,text)
         
 
 class StartAnalyseFrame(tk.Frame):
     def __init__(self, master=None, listbox_frame=None, time_frame=None, file_path_frame=None, **kwargs) -> None:
         super().__init__(master, **kwargs)
+        self.master = master
 
         # Инициализация ссылок на дочерние элементы
         self.listbox_frame = listbox_frame
@@ -230,9 +230,9 @@ class StartAnalyseFrame(tk.Frame):
         self.file_path_frame = file_path_frame
 
         # Инициализация дочерних элементов
-        self.analyse_new = tk.Button(self, text='Запустить запись и анализ новых данных', command=None)
-        self.analyse_pcapng = tk.Button(self, text='Запустить анализ данных из .pcapng', command=None)
-        self.analyse_csv = tk.Button(self, text='Запустить анализ данных из .csv', command=None)
+        self.analyse_new = tk.Button(self, text='Запустить запись и анализ новых данных', command=lambda: self.start_analysis())
+        self.analyse_pcapng = tk.Button(self, text='Запустить анализ данных из .pcapng', command=lambda: self.start_analysis(False, True))
+        self.analyse_csv = tk.Button(self, text='Запустить анализ данных из .csv', command=lambda: self.start_analysis(True, True))
 
         # Расположение дочерних элементов
         self.analyse_new.pack(fill='x')
@@ -266,41 +266,97 @@ class StartAnalyseFrame(tk.Frame):
             self.analyse_pcapng.config(state='disabled')
             self.analyse_csv.config(state='disabled')
 
+    def start_analysis(self, skip_sniffing = False, skip_converting = False):
+        
+        senders_ips = list(self.listbox_frame.listbox.get(0, tk.END))
+        parsing_time = int(self.time_frame.set_time_entry.get())
+        pcapng_path = str(self.file_path_frame.pcapng_entry.get())+'/bpt.pcapng'
+        csv_path = str(self.file_path_frame.csv_entry.get())+'/bpt.csv'
+        
+        self.master.master.withdraw()  # Скрыть основное окно
+        loading_page = LoadingPage(self.master.master)
+        # loading_page.grab_set()
+        self.master.master.update()
+        
+        if not skip_sniffing:
+            sniff_data(parsing_time, pcapng_path)
+        if not skip_converting:
+            if os.path.isfile(pcapng_path) == False:
+                loading_page.destroy()
+                self.master.master.deiconify()
+                show_warning('Файл bpt.pcapng не найден')
+                return
+            pcapng_to_csv(pcapng_path, csv_path)
+        if os.path.isfile(csv_path) == False:
+            loading_page.destroy()
+            self.master.master.deiconify()
+            show_warning('Файл bpt.csv не найден')
+            return
+        try:
+            epoch_start, epoch_end = get_epoch(csv_path)
+        except StopIteration:
+            loading_page.destroy()
+            self.master.master.deiconify()
+            show_no_data_warning()
+            return
+        try:
+            os.mkdir('./plots')
+        except FileExistsError:
+            pass
+        create_all_plots(senders_ips, csv_path, epoch_start, epoch_end)
 
-def show_main_page():
-    # Основное окно
-    root = tk.Tk(className='Bitplot')
-    root.title('Bitplot')
-    custom_font = font.Font(family='Arial', size=11)
-    root.option_add('*Font', custom_font)
+        loading_page.destroy()
+        self.master.master.deiconify()
 
-    # Инициализация дочерних элементов
-    main_frame = tk.Frame(root)
-    logo_label = tk.Label(main_frame, text=logo_text, font=('Courier', 12))
-    ip_list_frame = IpListFrame(main_frame)
-    delete_ip_frame = DeleteIpsFrame(main_frame, listbox_frame=ip_list_frame)
-    add_ip_frame = AddIpFrame(main_frame, listbox_frame=ip_list_frame, delete_frame=delete_ip_frame)
-    time_frame = TimeFrame(main_frame, listbox_frame=ip_list_frame)
-    file_path_frame = FilePathFrame(main_frame)
-    start_analyse_frame = StartAnalyseFrame(main_frame, listbox_frame=ip_list_frame, time_frame=time_frame, file_path_frame=file_path_frame)
-    delete_ip_frame.start_frame = start_analyse_frame
-    add_ip_frame.start_frame = start_analyse_frame
 
-    # Отображение дочерних элементов
-    main_frame.pack(fill='both', padx='20', pady='20', expand=True)
-    logo_label.pack(fill='x')
-    add_ip_frame.pack(fill='x', pady=(0,5))
-    ip_list_frame.pack(fill='both', expand=True)
-    delete_ip_frame.pack(fill='x',pady=(5,0))
-    Separator(main_frame, orient='horizontal').pack(fill='x', pady=20)
-    time_frame.update_times()
-    time_frame.pack(fill='x')
-    Separator(main_frame, orient='horizontal').pack(fill='x', pady=20)
-    file_path_frame.pack(fill='x')
-    Separator(main_frame, orient='horizontal').pack(fill='x', pady=20)
-    start_analyse_frame.pack(fill='x')
+class MainPage:
+    def __init__(self) -> None:
 
-    root.mainloop()
+        self.logo_text = r"""
+            |    _)  |         /\         
+             _ \  |   _|      /  \        
+   /\      _.__/__|_\__|_____/    \       
+__/  \    /          |        |    \      
+      \  /      _ \  |   _ \   _|   \_____
+       \/      .__/ _| \___/ \__|         
+              _|                          
+"""
+
+        self.root = tk.Tk(className='Bitplot')
+        self.root.title('Bitplot')
+        self.custom_font = font.Font(family='Arial', size=11)
+        self.root.option_add('*Font', self.custom_font)
+
+        # Инициализация дочерних элементов
+        self.main_frame = tk.Frame(self.root)
+        self.logo_label = tk.Label(self.main_frame, text=self.logo_text, font=('Courier', 12))
+        self.ip_list_frame = IpListFrame(self.main_frame)
+        self.delete_ip_frame = DeleteIpsFrame(self.main_frame, listbox_frame=self.ip_list_frame)
+        self.add_ip_frame = AddIpFrame(self.main_frame, listbox_frame=self.ip_list_frame, delete_frame=self.delete_ip_frame)
+        self.time_frame = TimeFrame(self.main_frame, listbox_frame=self.ip_list_frame)
+        self.file_path_frame = FilePathFrame(self.main_frame)
+        self.start_analyse_frame = StartAnalyseFrame(self.main_frame, listbox_frame=self.ip_list_frame, time_frame=self.time_frame, file_path_frame=self.file_path_frame)
+        self.delete_ip_frame.start_frame = self.start_analyse_frame
+        self.add_ip_frame.start_frame = self.start_analyse_frame
+
+        # Отображение дочерних элементов
+        self.main_frame.pack(fill='both', padx='20', pady='20', expand=True)
+        self.logo_label.pack(fill='x')
+        self.add_ip_frame.pack(fill='x', pady=(0,5))
+        self.ip_list_frame.pack(fill='both', expand=True)
+        self.delete_ip_frame.pack(fill='x',pady=(5,0))
+        
+        Separator(self.main_frame, orient='horizontal').pack(fill='x', pady=20)
+        self.time_frame.update_times()
+        self.time_frame.pack(fill='x')
+        
+        Separator(self.main_frame, orient='horizontal').pack(fill='x', pady=20)
+        self.file_path_frame.pack(fill='x')
+        self.file_path_frame.fill_empty_entries('/tmp')
+        
+        Separator(self.main_frame, orient='horizontal').pack(fill='x', pady=20)
+        self.start_analyse_frame.pack(fill='x')
+
 
 if __name__ == '__main__':
-    exit()
+    pass
