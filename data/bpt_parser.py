@@ -80,6 +80,30 @@ def get_bitrate(path, ip, epoch_list):
     return list(bitrate_dict.values())
 
 
+def get_min_avg_max(ip_list, path_to_csv, epoch_start, epoch_end) -> dict:
+    min_avr_max_dict = dict()
+
+    for ip in ip_list:
+        values_list = get_bitrate(path_to_csv, ip, range(epoch_start, epoch_end+1, 1))
+    
+        if len(values_list) < 3:
+            min_avr_max_dict[ip] = None
+
+        else:
+            # Избавляемся от первого и последнего значения, т.к. они могут быть нулями
+            values_list.pop(0)
+            values_list.pop(-1)
+
+            # Получаем значения
+            minimum = min(values_list)
+            average = ceil(sum(values_list) / len(values_list))
+            maximum = max(values_list)
+
+            min_avr_max_dict[ip] = [minimum, average, maximum]
+
+    return min_avr_max_dict
+
+
 def create_plot(ip_list, path_to_csv, epoch_start, epoch_end, ylim = None, enum = 1):
 
     date_duration = f'{epoch_to_datetime(epoch_start).replace(" ","_")}_{epoch_to_datetime(epoch_end).replace(" ","_")}'
@@ -155,7 +179,7 @@ def create_directory(path):
         pass
 
 
-def create_all_plots(ip_list: list, path_to_csv: str, epoch_start: int, epoch_end: int) -> None:
+def create_files(ip_list: list, path_to_csv: str, epoch_start: int, epoch_end: int) -> None:
     # pass
 
     date_duration = f'{epoch_to_datetime(epoch_start).replace(" ","_")}_{epoch_to_datetime(epoch_end).replace(" ","_")}'
@@ -166,13 +190,34 @@ def create_all_plots(ip_list: list, path_to_csv: str, epoch_start: int, epoch_en
         create_directory(f'./plots/recording_{date_duration}/multiple')
 
     for ip in ip_list:
-        create_directory(f'./plots/recording_{date_duration}/{ip}')   
+        create_directory(f'./plots/recording_{date_duration}/{ip}')
+
     
+    min_avg_max_values = get_min_avg_max(ip_list, path_to_csv, epoch_start, epoch_end)
+
+    for ip in ip_list:
+        
+        if min_avg_max_values[ip]:
+
+            minimum, average, maximum = min_avg_max_values[ip]
+            
+            with open(f'./plots/recording_{date_duration}/{ip}/bitrate_info.txt', 'a', encoding='utf-8') as file:
+                lines = [
+                    'Минимальный битрейт: '+str(minimum/1000)+' kbps\n',
+                    'Средний битрейт: '+str(average/1000)+' kbps\n',
+                    'Максимальный битрейт: '+str(maximum/1000)+' kbps\n'
+                ]
+
+                file.writelines(lines)
+
+
     ylim = create_plot(ip_list, path_to_csv, epoch_start, epoch_end)
 
     if len(ip_list) > 1:
         for ip in ip_list:
             create_plot([ip], path_to_csv, epoch_start, epoch_end, ylim, ip_list.index(ip))
+    
+
 
 
 if __name__ == '__main__':

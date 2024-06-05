@@ -7,7 +7,7 @@ from _tkinter import TclError
 from math import ceil
 
 from utils.converters import seconds_to_hms
-from data.bpt_parser import sniff_data, get_epoch, create_all_plots
+from data.bpt_parser import sniff_data, get_epoch, create_files
 from utils.converters import pcapng_to_csv
 from front.warnings import show_warning, show_no_data_warning
 from front.loading_page import LoadingPage
@@ -303,7 +303,7 @@ class StartAnalyseFrame(tk.Frame):
             os.mkdir('./plots')
         except FileExistsError:
             pass
-        create_all_plots(senders_ips, csv_path, epoch_start, epoch_end)
+        create_files(senders_ips, csv_path, epoch_start, epoch_end)
 
         loading_page.destroy()
         self.master.master.deiconify()
