@@ -1,6 +1,7 @@
-/plots/
-/settings.ini
+/plots
+/dist
 /.idea
 /.venv
 /.git
 __pycache__
+.settings

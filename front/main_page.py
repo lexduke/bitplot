@@ -1,7 +1,8 @@
-import os
+import os.path
 import tkinter as tk
-from tkinter import font
 import re
+import configparser
+from tkinter import font
 from tkinter.ttk import Separator
 from _tkinter import TclError
 from math import ceil
@@ -55,7 +56,7 @@ class AddIpFrame(tk.Frame):
         pattern = r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){0,3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?){0,1}$'
         return True if re.match(pattern, text) or text == "" else False
 
-    def update_button_state(self, event):
+    def update_button_state(self, *_):
         # Паттерн для проверки формата IP-адреса
         ip_pattern = r'^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
 
@@ -270,9 +271,24 @@ class StartAnalyseFrame(tk.Frame):
         
         senders_ips = list(self.listbox_frame.listbox.get(0, tk.END))
         parsing_time = int(self.time_frame.set_time_entry.get())
-        pcapng_path = str(self.file_path_frame.pcapng_entry.get())+'/bpt.pcapng'
-        csv_path = str(self.file_path_frame.csv_entry.get())+'/bpt.csv'
+        pcapng_path = str(self.file_path_frame.pcapng_entry.get())
+        csv_path = str(self.file_path_frame.csv_entry.get())
+
+        config = configparser.ConfigParser()
+        config['SETTINGS'] = {
+            'ips': ','.join(senders_ips),
+            'time': parsing_time,
+            'pcapng_dir_path': pcapng_path,
+            'csv_dir_path': csv_path
+        }
+
+        with open('.settings', 'w') as settingsfile:
+            config.write(settingsfile)
         
+        pcapng_path += '/bpt.pcapng'
+        csv_path += '/bpt.csv'
+
+
         self.master.master.withdraw()  # Скрыть основное окно
         loading_page = LoadingPage(self.master.master)
         # loading_page.grab_set()
@@ -317,7 +333,7 @@ class MainPage:
              _ \  |   _|      /  \          
    /\      _.__/__|_\__|_____/    \         
 __/  \    /          |        |    \        
-      \  /      _ \  |   _ \   _|   \_v.1.2_
+      \  /      _ \  |   _ \   _|   \_v.1.3_
        \/      .__/ _| \___/ \__|           
               _|                            
 """
@@ -356,6 +372,37 @@ __/  \    /          |        |    \
         
         Separator(self.main_frame, orient='horizontal').pack(fill='x', pady=20)
         self.start_analyse_frame.pack(fill='x')
+
+        self.load_settings()
+    
+    def load_settings(self):
+        if os.path.exists('.settings'):
+            config = configparser.ConfigParser()
+            config.read('.settings')
+
+            if 'SETTINGS' in config:
+                ips_list = config['SETTINGS'].get('ips', '').split(',')
+                parsing_time = config['SETTINGS'].get('time', 1)
+                pcapng_dir_path = config['SETTINGS'].get('pcapng_dir_path', '/tmp')
+                csv_dir_path = config['SETTINGS'].get('csv_dir_path', '/tmp')
+
+                for ip in ips_list:
+                    self.ip_list_frame.listbox.insert('end', ip)
+                self.add_ip_frame.update_button_state()
+                self.delete_ip_frame.update_buttons_state()
+
+                self.time_frame.set_time_entry.delete(0, 'end')
+                self.time_frame.set_time_entry.insert(0, parsing_time)
+                self.time_frame.update_times()
+
+                self.file_path_frame.pcapng_entry.delete(0, 'end')
+                self.file_path_frame.pcapng_entry.insert(0, pcapng_dir_path)
+
+                self.file_path_frame.csv_entry.delete(0, 'end')
+                self.file_path_frame.csv_entry.insert(0, csv_dir_path)
+        
+        else:
+            open(".settings", "w").close()
 
 
 if __name__ == '__main__':

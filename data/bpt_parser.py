@@ -14,10 +14,7 @@ from utils.converters import epoch_to_datetime
 ### ### Методы ### ###
 
 ### Сторонние процессы сбора информации
-def sniff_data(duration, path):
-    
-    # path = path+'/bpt.pcapng'
-    
+def sniff_data(duration, path):    
     cmd = ['dumpcap', '-a', f'duration:{str(duration)}', '-i', 'any', '-f', 'udp', '-s', '32', '-w', path]
     proc = Popen(cmd, stdout=PIPE, stderr=PIPE)
     stderr = proc.communicate()[1]
@@ -31,8 +28,6 @@ def get_epoch(path):
     Получение epoch из первой и последней строки csv при помощи seek, SEEK_END и SEEK_CUR
     Это намного эффективнее и быстрее, чем перебирать циклом for
     '''
-
-    # path = path+'/bpt.csv'
 
     file = open(path, 'rb') # Обязательно бинарное чтение, иначе не будет работать
         
@@ -180,7 +175,8 @@ def create_directory(path):
 
 
 def create_files(ip_list: list, path_to_csv: str, epoch_start: int, epoch_end: int) -> None:
-    # pass
+
+    
 
     date_duration = f'{epoch_to_datetime(epoch_start).replace(" ","_")}_{epoch_to_datetime(epoch_end).replace(" ","_")}'
 
